@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum MeetingRole {
+  HOST
+  PARTICIPANT
+}
+
+enum ParticipantStatus {
+  WAITING
+  JOINED
+  LEFT
+}
+
+model User {
+  id             String        @id @default(cuid())
+  name           String
+  email          String        @unique
+  passwordHash   String
+  refreshToken   String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  hostedMeetings Meeting[]     @relation("HostMeetings")
+  participants   Participant[]
+  messages       Message[]
+
+  @@index([createdAt])
+}
+
+model Meeting {
+  id           String         @id @default(cuid())
+  meetingCode  String         @unique
+  title        String?
+  hostId       String
+  isActive     Boolean        @default(true)
+  startedAt    DateTime       @default(now())
+  endedAt      DateTime?
+  createdAt    DateTime       @default(now())
+
+  host         User           @relation("HostMeetings", fields: [hostId], references: [id])
+  participants Participant[]
+  messages     Message[]
+
+  @@index([hostId])
+  @@index([createdAt])
+}
+
+model Participant {
+  id         String            @id @default(cuid())
+  meetingId  String
+  userId     String
+  role       MeetingRole       @default(PARTICIPANT)
+  status     ParticipantStatus @default(JOINED)
+  joinedAt   DateTime          @default(now())
+  leftAt     DateTime?
+
+  meeting    Meeting           @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([meetingId, userId])
+  @@index([meetingId, status])
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  meetingId  String
+  senderId   String
+  content    String
+  createdAt  DateTime @default(now())
+
+  meeting    Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  sender     User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId, createdAt])
+}
